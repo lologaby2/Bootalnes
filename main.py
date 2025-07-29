@@ -86,9 +86,8 @@ def webhook():
     bot.process_new_updates([update])
     return "OK", 200
 
-# تشغيل الخادم
+# بدون app.run()، لأننا سنستخدم gunicorn في التشغيل
 if __name__ == "__main__":
     print("✅ البوت يعمل عبر Webhook وينتظر الطلبات...")
     bot.remove_webhook()
     bot.set_webhook(url=f"https://bootalnes-production.up.railway.app/{BOT_TOKEN}")
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

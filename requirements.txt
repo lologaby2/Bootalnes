@@ -5,3 +5,4 @@ openai-whisper
 requests
 torch
 gunicorn
+torchaudio

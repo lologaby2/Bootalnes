@@ -4,22 +4,29 @@ import yt_dlp
 import whisper
 import requests
 import threading
+import time
 from flask import Flask, request
 
-# توكن البوت
 BOT_TOKEN = "7612945576:AAGxWkW1edlUIXzlaVLqvD-O0mzDpnXho0E"
 
-# إعداد البوت و Flask
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
-
-# إنشاء مجلد التنزيلات
 os.makedirs("downloads", exist_ok=True)
 
-# تحميل نموذج Whisper مرة واحدة
 whisper_model = whisper.load_model("base")
 
-# تحميل فيديو تيك توك
+# متابعة النشاط
+last_activity_time = time.time()
+
+def monitor_inactivity():
+    while True:
+        time.sleep(60)
+        if time.time() - last_activity_time > 600:
+            print("⏹️ لا يوجد نشاط منذ 10 دقائق، يتم إيقاف البوت.")
+            os._exit(0)
+
+threading.Thread(target=monitor_inactivity, daemon=True).start()
+
 def download_video(url):
     ydl_opts = {
         "outtmpl": "downloads/%(id)s.%(ext)s",
@@ -30,27 +37,27 @@ def download_video(url):
         info = ydl.extract_info(url, download=True)
         return ydl.prepare_filename(info)
 
-# استخراج النص باستخدام Whisper
 def transcribe_audio(video_path):
     result = whisper_model.transcribe(video_path)
     return result["text"]
 
-# معالجة النص في خيط منفصل
 def process_transcription(chat_id, path):
+    global last_activity_time
     try:
         bot.send_message(chat_id, "🧠 جاري استخراج النص...")
         text = transcribe_audio(path)
         bot.send_message(chat_id, f"📜 النص:\n{text}")
+        last_activity_time = time.time()
     except Exception as e:
         bot.send_message(chat_id, f"❌ حدث خطأ أثناء استخراج النص:\n{e}")
 
-# استقبال روابط TikTok
 @bot.message_handler(func=lambda message: "tiktok.com/" in message.text)
 def handle_tiktok_video(message):
+    global last_activity_time
     chat_id = message.chat.id
+    last_activity_time = time.time()
     original_url = message.text.strip().split()[0]
 
-    # توسيع الرابط إذا كان مختصرًا
     try:
         if "vt.tiktok.com" in original_url or "vm.tiktok.com" in original_url:
             response = requests.head(original_url, allow_redirects=True)
@@ -72,20 +79,19 @@ def handle_tiktok_video(message):
         with open(path, "rb") as f:
             bot.send_video(chat_id, f)
 
-        # معالجة النص في خيط مستقل
         threading.Thread(target=process_transcription, args=(chat_id, path)).start()
 
     except Exception as e:
         bot.send_message(chat_id, f"❌ خطأ أثناء المعالجة:\n{e}")
 
-# تهيئة Webhook
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
+    global last_activity_time
+    last_activity_time = time.time()
     update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
     bot.process_new_updates([update])
     return "OK", 200
 
-# تشغيل Webhook عند بدء السيرفر
 if __name__ == "__main__":
     print("✅ البوت يعمل وينتظر الطلبات من Telegram...")
     bot.remove_webhook()

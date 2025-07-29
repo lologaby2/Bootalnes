@@ -2,3 +2,4 @@ pyTelegramBotAPI
 Flask
 yt-dlp
 openai-whisper
+requests

@@ -1,8 +1,6 @@
 pyTelegramBotAPI
-Flask
 yt-dlp
 openai-whisper
 requests
 torch
-gunicorn
 torchaudio

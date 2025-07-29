@@ -4,3 +4,4 @@ yt-dlp
 openai-whisper
 requests
 torch
+gunicorn

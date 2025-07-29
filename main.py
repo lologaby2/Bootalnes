@@ -26,11 +26,18 @@ def download_video(url):
         info = ydl.extract_info(url, download=True)
         return ydl.prepare_filename(info)
 
-# استخراج النص باستخدام Whisper
+# استخراج النص باستخدام Whisper base
 def transcribe_audio(video_path):
-    model = whisper.load_model("base")
-    result = model.transcribe(video_path)
-    return result["text"]
+    try:
+        model = whisper.load_model("base")
+    except Exception as e:
+        return f"⚠️ خطأ في تحميل نموذج Whisper:\n{e}"
+    
+    try:
+        result = model.transcribe(video_path)
+        return result["text"]
+    except Exception as e:
+        return f"⚠️ فشل أثناء استخراج النص:\n{e}"
 
 # استقبال الرسائل
 @bot.message_handler(func=lambda message: "tiktok.com/" in message.text)
@@ -61,9 +68,13 @@ def handle_tiktok_video(message):
         with open(path, "rb") as f:
             bot.send_video(chat_id, f)
 
-        bot.send_message(chat_id, "🧠 جاري استخراج النص...")
+        bot.send_message(chat_id, "🧠 جاري استخراج النص باستخدام Whisper base...")
         text = transcribe_audio(path)
+
         bot.send_message(chat_id, f"📜 النص:\n{text}")
+
+        # حذف الملف بعد الانتهاء
+        os.remove(path)
 
     except Exception as e:
         bot.send_message(chat_id, f"❌ خطأ أثناء المعالجة:\n{e}")

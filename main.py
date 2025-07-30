@@ -1,37 +1,20 @@
 import os
-import time
 import telebot
 import yt_dlp
 import whisper
 import requests
 import threading
-import sys
+import time
+import random
 
-# توكن البوت
 BOT_TOKEN = "7612945576:AAGxWkW1edlUIXzlaVLqvD-O0mzDpnXho0E"
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# إنشاء مجلد التنزيلات
+whisper_model = whisper.load_model("base")
 os.makedirs("downloads", exist_ok=True)
 
-# تحميل نموذج Whisper مرة واحدة
-whisper_model = whisper.load_model("base")
-
-# آخر وقت نشاط
 last_activity = time.time()
 
-# مؤقت إيقاف تلقائي بعد 10 دقائق خمول
-def auto_shutdown_timer():
-    global last_activity
-    while True:
-        if time.time() - last_activity > 600:
-            print("⏹️ تم الإيقاف التلقائي بعد 10 دقائق من الخمول.")
-            sys.exit()
-        time.sleep(30)
-
-threading.Thread(target=auto_shutdown_timer, daemon=True).start()
-
-# تحميل الفيديو
 def download_video(url):
     ydl_opts = {
         "outtmpl": "downloads/%(id)s.%(ext)s",
@@ -42,12 +25,10 @@ def download_video(url):
         info = ydl.extract_info(url, download=True)
         return ydl.prepare_filename(info)
 
-# تحويل الفيديو إلى نص
 def transcribe_audio(video_path):
     result = whisper_model.transcribe(video_path)
     return result["text"]
 
-# المعالجة في خيط منفصل
 def process_transcription(chat_id, path):
     try:
         bot.send_message(chat_id, "🧠 جاري استخراج النص...")
@@ -56,8 +37,7 @@ def process_transcription(chat_id, path):
     except Exception as e:
         bot.send_message(chat_id, f"❌ حدث خطأ أثناء استخراج النص:\n{e}")
 
-# التعامل مع رابط تيك توك
-@bot.message_handler(func=lambda msg: "tiktok.com/" in msg.text)
+@bot.message_handler(func=lambda message: "tiktok.com/" in message.text)
 def handle_tiktok_video(message):
     global last_activity
     last_activity = time.time()
@@ -87,10 +67,19 @@ def handle_tiktok_video(message):
             bot.send_video(chat_id, f)
 
         threading.Thread(target=process_transcription, args=(chat_id, path)).start()
+
     except Exception as e:
         bot.send_message(chat_id, f"❌ خطأ أثناء المعالجة:\n{e}")
 
-# بدء البوت بلونغ بولينغ
+def auto_shutdown_timer():
+    while True:
+        if time.time() - last_activity > 600:
+            print("🛑 تم إيقاف البوت تلقائيًا بسبب الخمول")
+            os._exit(0)
+        time.sleep(10)
+
 if __name__ == "__main__":
-    print("✅ البوت يعمل الآن عبر polling وينتظر الرسائل...")
-    bot.infinity_polling()
+    bot.remove_webhook()
+    threading.Thread(target=auto_shutdown_timer, daemon=True).start()
+    print("✅ البوت يعمل باستخدام Long Polling...")
+    bot.polling(none_stop=True, timeout=60)
